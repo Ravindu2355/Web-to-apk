@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Smartphone screen body outline inside safe zoom -->
+    <path
+        android:pathData="M38,24 h32 a4,4 0 0 1 4,4 v52 a4,4 0 0 1 -4,4 h-32 a4,4 0 0 1 -4,-4 v-52 a4,4 0 0 1 4,-4 z"
+        android:strokeColor="#00F0FF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+        
+    <!-- Home indicator knob -->
+    <path
+        android:pathData="M50,80 h8"
+        android:strokeColor="#00F0FF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round" />
+        
+    <!-- HTML Tags Left Bracket < -->
+    <path
+        android:pathData="M30,46 l-8,8 l8,8"
+        android:strokeColor="#BF5AF2"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+        
+    <!-- HTML Tags Right Bracket > -->
+    <path
+        android:pathData="M78,46 l8,8 l-8,8"
+        android:strokeColor="#BF5AF2"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+        
+    <!-- Lightning bolt represent the live android system bridge control -->
+    <path
+        android:pathData="M56,36 l-10,14 h10 l-4,18 l14,-18 h-10 z"
+        android:fillColor="#00F0FF" />
+</vector>
