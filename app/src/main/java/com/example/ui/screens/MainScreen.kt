@@ -484,6 +484,44 @@ fun WebViewComponent(
             super.onPageFinished(view, url)
             viewModel.addLog("SYSTEM", "DEBUG", "WebView page loaded: $url")
           }
+
+          override fun onReceivedError(
+            view: WebView?,
+            request: android.webkit.WebResourceRequest?,
+            error: android.webkit.WebResourceError?
+          ) {
+            super.onReceivedError(view, request, error)
+            // Only log high-level main frame loading failures to prevent clutter from subresource failures (e.g. missing favicons)
+            if (request?.isForMainFrame == true) {
+              val errorMessage = error?.description?.toString() ?: "Unknown error"
+              val failingUrl = request.url?.toString() ?: ""
+              viewModel.addLog("SYSTEM", "ERROR", "Failed to load $failingUrl: $errorMessage")
+              android.widget.Toast.makeText(context, "Error loading page: $errorMessage", android.widget.Toast.LENGTH_LONG).show()
+            }
+          }
+
+          override fun onReceivedError(
+            view: WebView?,
+            errorCode: Int,
+            description: String?,
+            failingUrl: String?
+          ) {
+            super.onReceivedError(view, errorCode, description, failingUrl)
+            viewModel.addLog("SYSTEM", "ERROR", "Failed to load $failingUrl: $description (Code: $errorCode)")
+            android.widget.Toast.makeText(context, "Error loading page: $description", android.widget.Toast.LENGTH_LONG).show()
+          }
+
+          override fun onReceivedSslError(
+            view: WebView?,
+            handler: android.webkit.SslErrorHandler?,
+            error: android.net.http.SslError?
+          ) {
+            val sslErrorMessage = error?.toString() ?: "SSL certificate error"
+            viewModel.addLog("SYSTEM", "ERROR", "SSL error: $sslErrorMessage")
+            // Cancel loading on SSL error for security reasons, but notify user
+            android.widget.Toast.makeText(context, "SSL Security Error: $sslErrorMessage", android.widget.Toast.LENGTH_LONG).show()
+            handler?.cancel()
+          }
         }
 
         webChromeClient = object : WebChromeClient() {
