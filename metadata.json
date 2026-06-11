@@ -1,5 +1,5 @@
 {
-  "name": "WebToApp Sandbox",
+  "name": "RvX SubEditor",
   "description": "Transform static HTML/CSS/JS sites into powerful Android apps with a complete Javascript-to-Android Bridge and live sandbox editor.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

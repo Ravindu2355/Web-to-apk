@@ -1,9 +1,9 @@
 {
-  "appName": "WebToApp Sandbox",
-  "startUrl": "https://localhost/",
+  "appName": "RvX SubEditor",
+  "startUrl": "https://rvx-subeditor.web.app/",
   "applicationId": "com.aistudio.webtoapp.vshrt",
   "statusBarColor": "#090B11",
   "navigationBarColor": "#141724",
   "immersiveMode": false,
-  "enableSandboxMode": true
+  "enableSandboxMode": false
 }
