@@ -8,6 +8,7 @@ import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -69,6 +70,8 @@ fun MainScreen(
   onToggleImmersive: () -> Unit,
   onSetStatusBarColor: (String) -> Unit,
   onSetNavigationBarColor: (String) -> Unit,
+  onSetFullScreen: (Boolean) -> Unit,
+  onShowStatusBar: (Boolean) -> Unit,
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
@@ -80,6 +83,8 @@ fun MainScreen(
   val reloadFlag by viewModel.sandboxReloadFlag.collectAsStateWithLifecycle()
   val selectedTemplateIndex by viewModel.selectedTemplateIndex.collectAsStateWithLifecycle()
   val isFullscreen = viewModel.isFullscreen.value
+
+  var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
   // Create the AndroidBridge once
   val bridgeInstance = remember(webViewInstanceRefKey(reloadFlag)) {
@@ -93,8 +98,55 @@ fun MainScreen(
         onToggleImmersive()
       },
       onSetStatusBarColor = onSetStatusBarColor,
-      onSetNavigationBarColor = onSetNavigationBarColor
+      onSetNavigationBarColor = onSetNavigationBarColor,
+      onGoBack = { webViewRef?.goBack() },
+      onGoForward = { webViewRef?.goForward() },
+      onReload = { webViewRef?.reload() },
+      onLoadUrl = { url -> webViewRef?.loadUrl(url) },
+      onCanGoBack = { webViewRef?.canGoBack() ?: false },
+      onCanGoForward = { webViewRef?.canGoForward() ?: false },
+      onSetFullScreen = { enabled ->
+        viewModel.isFullscreen.value = enabled
+        onSetFullScreen(enabled)
+      },
+      onShowStatusBar = onShowStatusBar
     )
+  }
+
+  // Handle the hardware back button press, passing full control to JavaScript
+  BackHandler(enabled = webViewRef != null) {
+    webViewRef?.let { webv ->
+      webv.evaluateJavascript(
+        """
+        (function() {
+          if (typeof window.onAndroidBack === 'function') {
+            try {
+              window.onAndroidBack();
+              return "custom_handler";
+            } catch(e) {
+              return "error: " + e.message;
+            }
+          }
+          var event = new CustomEvent('androidback', { cancelable: true });
+          var cancelled = !window.dispatchEvent(event);
+          if (cancelled) {
+            return "event_cancelled";
+          }
+          return "not_handled";
+        })()
+        """.trimIndent()
+      ) { result ->
+        val cleanResult = result?.replace("\"", "") ?: "not_handled"
+        if (cleanResult == "not_handled" || cleanResult.startsWith("error:")) {
+          if (webv.canGoBack()) {
+            webv.goBack()
+          } else {
+            // No history and JS didn't handle it, so exit the app
+            (context as? android.app.Activity)?.finish()
+          }
+        }
+      }
+    }
   }
 
   Box(
@@ -102,13 +154,43 @@ fun MainScreen(
       .fillMaxSize()
       .background(SpaceBg)
   ) {
-    if (isFullscreen) {
+    if (!com.example.AppConfig.enableSandboxMode) {
+      // Standalone Production mode: Edge-to-edge full web screen
+      Column(modifier = Modifier.fillMaxSize()) {
+        if (!isFullscreen) {
+          val statusBarColorHex = com.example.AppConfig.statusBarColor
+          val parsedColor = remember(statusBarColorHex) {
+            try {
+              Color(android.graphics.Color.parseColor(statusBarColorHex))
+            } catch (e: Exception) {
+              Color.Transparent
+            }
+          }
+          Spacer(
+            modifier = Modifier
+              .fillMaxWidth()
+              .windowInsetsTopHeight(WindowInsets.statusBars)
+              .background(parsedColor)
+          )
+        }
+        WebViewComponent(
+          viewModel = viewModel,
+          html = com.example.AppConfig.startUrl,
+          bridge = bridgeInstance,
+          onWebViewCreated = { webViewRef = it },
+          modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+        )
+      }
+    } else if (isFullscreen) {
       // True immersive full-screen display of running static site
       Box(modifier = Modifier.fillMaxSize()) {
         WebViewComponent(
           viewModel = viewModel,
           html = viewModel.getMergedHtml(),
           bridge = bridgeInstance,
+          onWebViewCreated = { webViewRef = it },
           modifier = Modifier.fillMaxSize()
         )
 
@@ -267,7 +349,12 @@ fun MainScreen(
           HorizontalDivider(color = SlateBorder, thickness = 0.5.dp)
 
           when (activeTab) {
-            0 -> WebViewSandboxTab(viewModel = viewModel, html = viewModel.getMergedHtml(), bridge = bridgeInstance)
+            0 -> WebViewSandboxTab(
+              viewModel = viewModel,
+              html = viewModel.getMergedHtml(),
+              bridge = bridgeInstance,
+              onWebViewCreated = { webViewRef = it }
+            )
             1 -> CodeEditorTab(
               viewModel = viewModel,
               htmlCode = htmlCode,
@@ -289,7 +376,12 @@ fun MainScreen(
 // WEB VIEW RUNTIME SCREEN
 // -------------------------------------------------------------
 @Composable
-fun WebViewSandboxTab(viewModel: WebToAppViewModel, html: String, bridge: AndroidBridge) {
+fun WebViewSandboxTab(
+  viewModel: WebToAppViewModel,
+  html: String,
+  bridge: AndroidBridge,
+  onWebViewCreated: (WebView) -> Unit
+) {
   Box(modifier = Modifier.fillMaxSize()) {
     Column(modifier = Modifier.fillMaxSize()) {
       // Mini state bar inside runtime tab
@@ -323,6 +415,7 @@ fun WebViewSandboxTab(viewModel: WebToAppViewModel, html: String, bridge: Androi
         viewModel = viewModel,
         html = html,
         bridge = bridge,
+        onWebViewCreated = onWebViewCreated,
         modifier = Modifier
           .fillMaxWidth()
           .weight(1f)
@@ -355,7 +448,13 @@ fun WebViewSandboxTab(viewModel: WebToAppViewModel, html: String, bridge: Androi
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun WebViewComponent(viewModel: WebToAppViewModel, html: String, bridge: AndroidBridge, modifier: Modifier = Modifier) {
+fun WebViewComponent(
+  viewModel: WebToAppViewModel,
+  html: String,
+  bridge: AndroidBridge,
+  onWebViewCreated: (WebView) -> Unit = {},
+  modifier: Modifier = Modifier
+) {
   val context = LocalContext.current
 
   AndroidView(
@@ -383,7 +482,7 @@ fun WebViewComponent(viewModel: WebToAppViewModel, html: String, bridge: Android
         webViewClient = object : WebViewClient() {
           override fun onPageFinished(view: WebView?, url: String?) {
             super.onPageFinished(view, url)
-            viewModel.addLog("SYSTEM", "DEBUG", "WebView page loaded successfully.")
+            viewModel.addLog("SYSTEM", "DEBUG", "WebView page loaded: $url")
           }
         }
 
@@ -398,12 +497,24 @@ fun WebViewComponent(viewModel: WebToAppViewModel, html: String, bridge: Android
           }
         }
 
-        loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null)
+        onWebViewCreated(this)
+
+        if (html.startsWith("http://") || html.startsWith("https://") || html.startsWith("file://")) {
+          loadUrl(html)
+        } else {
+          loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null)
+        }
       }
     },
     update = { webView ->
-      // When reload trigger is hit, re-inject code bundles and trigger client recomputes
-      webView.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null)
+      onWebViewCreated(webView)
+      if (html.startsWith("http://") || html.startsWith("https://") || html.startsWith("file://")) {
+        if (webView.url != html) {
+          webView.loadUrl(html)
+        }
+      } else {
+        webView.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null)
+      }
     },
     modifier = modifier
   )
@@ -853,6 +964,70 @@ fun BundleGuideTab() {
           </manifest>
         """.trimIndent()
         CodeContainer(code = manifestXml, clipboardManager = clipboardManager)
+      }
+    }
+
+    Card(
+      colors = CardDefaults.cardColors(containerColor = SlateCardBg),
+      shape = RoundedCornerShape(12.dp),
+      modifier = Modifier.fillMaxWidth().border(width = 0.5.dp, color = SlateBorder, shape = RoundedCornerShape(12.dp))
+    ) {
+      Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("🔙 Step 4: Intercepting hardware BACK Button", fontWeight = FontWeight.Bold, color = AccentCyan, fontSize = 13.sp)
+        Text("Your web app can intercept when the user clicks the physical device back button using either a standard event listener or a global hook function.", fontSize = 11.sp, color = Color.Gray)
+        
+        Text("Option A: Standard Custom Event (Recommended)", fontSize = 11.sp, color = Color.White)
+        val jsEventCode = """
+          window.addEventListener('androidback', (event) => {
+              // preventDefault stops native WebView back step and lets you run custom JS
+              event.preventDefault(); 
+              
+              alert("Hardware back button clicked!");
+              // Example: Custom navigation back or close navigation drawer
+          });
+        """.trimIndent()
+        CodeContainer(code = jsEventCode, clipboardManager = clipboardManager)
+
+        Text("Option B: Global function hook", fontSize = 11.sp, color = Color.White)
+        val jsFuncCode = """
+          window.onAndroidBack = function() {
+              alert("window.onAndroidBack was triggered!");
+              // Run any custom back action you desire here
+          };
+        """.trimIndent()
+        CodeContainer(code = jsFuncCode, clipboardManager = clipboardManager)
+      }
+    }
+
+    Card(
+      colors = CardDefaults.cardColors(containerColor = SlateCardBg),
+      shape = RoundedCornerShape(12.dp),
+      modifier = Modifier.fillMaxWidth().border(width = 0.5.dp, color = SlateBorder, shape = RoundedCornerShape(12.dp))
+    ) {
+      Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("📱 Step 5: Fullscreen & Status Bar Control", fontWeight = FontWeight.Bold, color = AccentCyan, fontSize = 13.sp)
+        Text("Pass dynamic layout attributes directly from your JavaScript application to command immersive states, notches, and status overlays:", fontSize = 11.sp, color = Color.Gray)
+        
+        Text("Immersive Fullscreen API", fontSize = 11.sp, color = Color.White)
+        val jsFullscreenCode = """
+          // Toggle full screen mode on or off
+          window.AndroidBridge.toggleFullScreen();
+
+          // Explicitly enter/exit full screen model
+          window.AndroidBridge.setFullScreen(true); // true to hide status/navigation bars, false to show
+        """.trimIndent()
+        CodeContainer(code = jsFullscreenCode, clipboardManager = clipboardManager)
+
+        Text("Dynamic Status Bar Control", fontSize = 11.sp, color = Color.White)
+        val jsStatusBarCode = """
+          // Explicitly show or hide the status/clock bar at the top (preserving the notch)
+          window.AndroidBridge.showStatusBar(true); // true to show, false to hide
+
+          // Adjust colors of system bars dynamically
+          window.AndroidBridge.setStatusBarColor("#1A0F30");
+          window.AndroidBridge.setNavigationBarColor("#1A0F30");
+        """.trimIndent()
+        CodeContainer(code = jsStatusBarCode, clipboardManager = clipboardManager)
       }
     }
     

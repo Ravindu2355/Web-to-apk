@@ -31,12 +31,25 @@ class MainActivity : ComponentActivity() {
       }
     }
 
+    AppConfig.load(this)
     enableEdgeToEdge()
+
+    // Apply initial colors from configuration
+    changeStatusBarColor(AppConfig.statusBarColor)
+    changeNavigationBarColor(AppConfig.navigationBarColor)
 
     setContent {
       MyApplicationTheme {
         val viewModel: WebToAppViewModel = viewModel()
         val vibrator = remember { getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
+
+        // Initialize state on first launch
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+          if (AppConfig.immersiveMode) {
+            viewModel.isFullscreen.value = true
+            toggleImmersiveFullscreen(true)
+          }
+        }
 
         MainScreen(
           viewModel = viewModel,
@@ -50,9 +63,24 @@ class MainActivity : ComponentActivity() {
           },
           onSetNavigationBarColor = { hex ->
             changeNavigationBarColor(hex)
+          },
+          onSetFullScreen = { enabled ->
+            toggleImmersiveFullscreen(enabled)
+          },
+          onShowStatusBar = { visible ->
+            showStatusBar(visible)
           }
         )
       }
+    }
+  }
+
+  private fun showStatusBar(visible: Boolean) {
+    val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+    if (visible) {
+      windowInsetsController.show(WindowInsetsCompat.Type.statusBars())
+    } else {
+      windowInsetsController.hide(WindowInsetsCompat.Type.statusBars())
     }
   }
 

@@ -22,8 +22,62 @@ class AndroidBridge(
   private val tts: TextToSpeech,
   private val onToggleImmersive: () -> Unit,
   private val onSetStatusBarColor: (String) -> Unit,
-  private val onSetNavigationBarColor: (String) -> Unit
+  private val onSetNavigationBarColor: (String) -> Unit,
+  private val onGoBack: (() -> Unit)? = null,
+  private val onGoForward: (() -> Unit)? = null,
+  private val onReload: (() -> Unit)? = null,
+  private val onLoadUrl: ((String) -> Unit)? = null,
+  private val onCanGoBack: (() -> Boolean)? = null,
+  private val onCanGoForward: (() -> Boolean)? = null,
+  private val onSetFullScreen: ((Boolean) -> Unit)? = null,
+  private val onShowStatusBar: ((Boolean) -> Unit)? = null
 ) {
+
+  @JavascriptInterface
+  fun goBack() {
+    viewModel.addLog("BRIDGE", "INFO", "goBack()")
+    (context as? Activity)?.runOnUiThread {
+      onGoBack?.invoke()
+    }
+  }
+
+  @JavascriptInterface
+  fun goForward() {
+    viewModel.addLog("BRIDGE", "INFO", "goForward()")
+    (context as? Activity)?.runOnUiThread {
+      onGoForward?.invoke()
+    }
+  }
+
+  @JavascriptInterface
+  fun reload() {
+    viewModel.addLog("BRIDGE", "INFO", "reload()")
+    (context as? Activity)?.runOnUiThread {
+      onReload?.invoke()
+    }
+  }
+
+  @JavascriptInterface
+  fun loadUrl(url: String) {
+    viewModel.addLog("BRIDGE", "INFO", "loadUrl(\"$url\")")
+    (context as? Activity)?.runOnUiThread {
+      onLoadUrl?.invoke(url)
+    }
+  }
+
+  @JavascriptInterface
+  fun canGoBack(): Boolean {
+    val result = onCanGoBack?.invoke() ?: false
+    viewModel.addLog("BRIDGE", "INFO", "canGoBack() -> return $result")
+    return result
+  }
+
+  @JavascriptInterface
+  fun canGoForward(): Boolean {
+    val result = onCanGoForward?.invoke() ?: false
+    viewModel.addLog("BRIDGE", "INFO", "canGoForward() -> return $result")
+    return result
+  }
 
   @JavascriptInterface
   fun showToast(message: String) {
@@ -123,6 +177,22 @@ class AndroidBridge(
     viewModel.addLog("BRIDGE", "INFO", "toggleFullScreen()")
     (context as? Activity)?.runOnUiThread {
       onToggleImmersive()
+    }
+  }
+
+  @JavascriptInterface
+  fun setFullScreen(enabled: Boolean) {
+    viewModel.addLog("BRIDGE", "INFO", "setFullScreen($enabled)")
+    (context as? Activity)?.runOnUiThread {
+      onSetFullScreen?.invoke(enabled)
+    }
+  }
+
+  @JavascriptInterface
+  fun showStatusBar(visible: Boolean) {
+    viewModel.addLog("BRIDGE", "INFO", "showStatusBar($visible)")
+    (context as? Activity)?.runOnUiThread {
+      onShowStatusBar?.invoke(visible)
     }
   }
 

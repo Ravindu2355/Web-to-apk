@@ -1,0 +1,9 @@
+{
+  "appName": "WebToApp Sandbox",
+  "startUrl": "https://localhost/",
+  "applicationId": "com.aistudio.webtoapp.vshrt",
+  "statusBarColor": "#090B11",
+  "navigationBarColor": "#141724",
+  "immersiveMode": false,
+  "enableSandboxMode": true
+}
