@@ -69,6 +69,9 @@ class MainActivity : ComponentActivity() {
           },
           onShowStatusBar = { visible ->
             showStatusBar(visible)
+          },
+          onShowNavigationBar = { visible ->
+            showNavigationBar(visible)
           }
         )
       }
@@ -81,6 +84,17 @@ class MainActivity : ComponentActivity() {
       windowInsetsController.show(WindowInsetsCompat.Type.statusBars())
     } else {
       windowInsetsController.hide(WindowInsetsCompat.Type.statusBars())
+    }
+  }
+
+  private fun showNavigationBar(visible: Boolean) {
+    val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+    if (visible) {
+      windowInsetsController.show(WindowInsetsCompat.Type.navigationBars())
+    } else {
+      windowInsetsController.hide(WindowInsetsCompat.Type.navigationBars())
+      windowInsetsController.systemBarsBehavior =
+        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
   }
 

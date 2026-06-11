@@ -72,6 +72,7 @@ fun MainScreen(
   onSetNavigationBarColor: (String) -> Unit,
   onSetFullScreen: (Boolean) -> Unit,
   onShowStatusBar: (Boolean) -> Unit,
+  onShowNavigationBar: (Boolean) -> Unit,
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
@@ -109,7 +110,8 @@ fun MainScreen(
         viewModel.isFullscreen.value = enabled
         onSetFullScreen(enabled)
       },
-      onShowStatusBar = onShowStatusBar
+      onShowStatusBar = onShowStatusBar,
+      onShowNavigationBar = onShowNavigationBar
     )
   }
 
@@ -182,6 +184,22 @@ fun MainScreen(
             .fillMaxWidth()
             .weight(1f)
         )
+        if (!isFullscreen) {
+          val navBarColorHex = com.example.AppConfig.navigationBarColor
+          val parsedNavColor = remember(navBarColorHex) {
+            try {
+              Color(android.graphics.Color.parseColor(navBarColorHex))
+            } catch (e: Exception) {
+              Color.Transparent
+            }
+          }
+          Spacer(
+            modifier = Modifier
+              .fillMaxWidth()
+              .windowInsetsBottomHeight(WindowInsets.navigationBars)
+              .background(parsedNavColor)
+          )
+        }
       }
     } else if (isFullscreen) {
       // True immersive full-screen display of running static site
@@ -1056,10 +1074,13 @@ fun BundleGuideTab() {
         """.trimIndent()
         CodeContainer(code = jsFullscreenCode, clipboardManager = clipboardManager)
 
-        Text("Dynamic Status Bar Control", fontSize = 11.sp, color = Color.White)
+        Text("Dynamic Status & Navigation Bar Control", fontSize = 11.sp, color = Color.White)
         val jsStatusBarCode = """
           // Explicitly show or hide the status/clock bar at the top (preserving the notch)
           window.AndroidBridge.showStatusBar(true); // true to show, false to hide
+
+          // Explicitly show or hide the bottom system navigation keys
+          window.AndroidBridge.showNavigationBar(true); // true to show, false to hide
 
           // Adjust colors of system bars dynamically
           window.AndroidBridge.setStatusBarColor("#1A0F30");

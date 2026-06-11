@@ -30,7 +30,8 @@ class AndroidBridge(
   private val onCanGoBack: (() -> Boolean)? = null,
   private val onCanGoForward: (() -> Boolean)? = null,
   private val onSetFullScreen: ((Boolean) -> Unit)? = null,
-  private val onShowStatusBar: ((Boolean) -> Unit)? = null
+  private val onShowStatusBar: ((Boolean) -> Unit)? = null,
+  private val onShowNavigationBar: ((Boolean) -> Unit)? = null
 ) {
 
   @JavascriptInterface
@@ -193,6 +194,14 @@ class AndroidBridge(
     viewModel.addLog("BRIDGE", "INFO", "showStatusBar($visible)")
     (context as? Activity)?.runOnUiThread {
       onShowStatusBar?.invoke(visible)
+    }
+  }
+
+  @JavascriptInterface
+  fun showNavigationBar(visible: Boolean) {
+    viewModel.addLog("BRIDGE", "INFO", "showNavigationBar($visible)")
+    (context as? Activity)?.runOnUiThread {
+      onShowNavigationBar?.invoke(visible)
     }
   }
 
