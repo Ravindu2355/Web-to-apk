@@ -475,6 +475,20 @@ fun WebViewComponent(
 ) {
   val context = LocalContext.current
 
+  // Storage & File Upload Support: WebChromeClient File Chooser Intent Launcher
+  var filePathCallback by remember { mutableStateOf<android.webkit.ValueCallback<Array<android.net.Uri>>?>(null) }
+  val fileChooserLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+    contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+  ) { result ->
+    val pickerResult = if (result.resultCode == android.app.Activity.RESULT_OK) {
+      WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+    } else {
+      null
+    }
+    filePathCallback?.onReceiveValue(pickerResult)
+    filePathCallback = null
+  }
+
   AndroidView(
     factory = { ctx ->
       WebView(ctx).apply {
@@ -548,6 +562,33 @@ fun WebViewComponent(
               val level = consoleMessage.messageLevel().name
               val msg = consoleMessage.message()
               viewModel.addLog("CONSOLE", level, "$msg [Line ${consoleMessage.lineNumber()}]")
+            }
+            return true
+          }
+
+          // Override File Chooser to open the Android Document Picker
+          override fun onShowFileChooser(
+            webView: WebView?,
+            filePathCallbackValue: android.webkit.ValueCallback<Array<android.net.Uri>>?,
+            fileChooserParams: FileChooserParams?
+          ): Boolean {
+            filePathCallback?.onReceiveValue(null)
+            filePathCallback = filePathCallbackValue
+
+            try {
+              val intent = fileChooserParams?.createIntent()
+              if (intent != null) {
+                fileChooserLauncher.launch(intent)
+              } else {
+                filePathCallbackValue?.onReceiveValue(null)
+                filePathCallback = null
+                return false
+              }
+            } catch (e: Exception) {
+              viewModel.addLog("SYSTEM", "ERROR", "Failed to launch File Chooser: ${e.message}")
+              filePathCallbackValue?.onReceiveValue(null)
+              filePathCallback = null
+              return false
             }
             return true
           }
